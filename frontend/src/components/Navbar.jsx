@@ -4,8 +4,9 @@ import { logout } from "../slices/AuthSlice";
 
  const Navbar = () => {
   const user = useSelector((state) => state.auth.user);
+  const usersta = useSelector((state) => state.auth.status);
   const dispatch = useDispatch();
-
+  console.log(usersta,"status checking")
   function handleLogout() {
     dispatch(logout());
   }

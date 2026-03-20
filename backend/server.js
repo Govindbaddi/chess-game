@@ -97,12 +97,71 @@ io.on('connection',(socket)=>{
             })
             rooms.set(roomCode,newRoom)
             io.to(roomCode).emit("room:presence",newRoom);
+            console.log(newRoom,"created room")
             return ack?.({ok:true,room:newRoom})
         }
     catch(err){
         return ack?.({ok:false,message:err.message || "create room failed"})
     }}))
-    console.log(`A user connected  on socket ${socket.id}`)
+
+    //room:join event
+    socket.on("room:join",(roomCode,ack)=>{
+        //console.log(`A user tried to join the room ${roomCode}`)
+        try{
+        const existingRoom=rooms.get(roomCode)
+        if(!existingRoom){
+            return ack?.({ok:false,message:"room does not exist"})
+        }
+
+        const already=existingRoom.players.some((p)=>
+        p.userId.toString()===socket.user._id.toString()
+        )
+        if(!already){
+            if(existingRoom.players.length==2){
+                return ack?.({ok:false,message:"room is full"})
+            }
+            existingRoom.players.push({
+                name:socket.user.name,
+                socketId:socket.id,
+                userId:socket.user._id, 
+            })
+        }
+        else{
+            existingRoom.players=existingRoom.players.map((p)=>{
+                if(p.userId.toString()===socket.user._id.toString()){
+                    return {...p,socketId:socket.id}
+                }
+                return p;
+            })
+        }
+        existingRoom.status=existingRoom.players.length==2?"ready":"waiting"
+            socket.join(roomCode)
+            console.log(existingRoom)
+            io.to(roomCode).emit("room:presence",existingRoom);
+            return ack?.({ok:true, room: existingRoom})
+        }
+    catch(err){
+        return ack?.({ok:false,message:err.message || "join in room failed"})
+    }
+
+    })
+    //console.log(`A user connected  on socket ${socket.id}`)
+    socket.on("room:leave",(roomCode,ack)=>{
+        try{
+        const existingRoom=rooms.get(roomCode)
+        if(!existingRoom){
+            return ack?.({ok:false,message:"room does not exist"})
+        }
+        let remainingPlayers=existingRoom.players.filter((p)=>{
+            return p.userId.toString()!==socket.user._id.toString()
+        })
+        console.log("remainging ",remainingPlayers)
+         return ack?.({ok:true, room: remainingPlayers})
+        }
+        catch(err){
+             return ack?.({ok:false,message:err.message || "failed to leave room"})
+        }
+        })
 })
 
 
