@@ -7,6 +7,7 @@ const cookieParser=require("cookie-parser")
 const {Server}=require('socket.io')
 const http=require('http')
 const jwt=require('jsonwebtoken')
+const {Chess}=require('chess.js')
 const { User } = require("./models/usermodel")
 
 const app=express()
@@ -30,6 +31,18 @@ const io=new Server(server,{cors:{
     origin:["http://localhost:5173"],
     credentials:true
 }})
+
+
+function getPublicState(room) {
+  return {
+    roomCode: room.roomCode,
+    fen: room.game.fen(),
+    turn: room.game.turn(),
+    whiteId: room.whiteId,
+    blackId: room.blackId,
+    lastMove: room.lastMove,
+  };
+}
 
 // Socket.io middleware
 io.use(async (socket, next) => {
@@ -75,8 +88,25 @@ function getRoomCode(len=6){
     }
     return code;
 }
+
+// helper function to remove game object from the room
+
+
+
 let rooms=new Map()
 io.on('connection',(socket)=>{
+    function getPublicRoom(room) {
+  return {
+    roomCode: room.roomCode,
+    players: room.players.map((p) => ({ userId: p.userId, name: p.name })),
+    status: room.status,
+    createdAt: room.createdAt,
+    fen: room.fen,
+    whiteId: room.whiteId,
+    blackId: room.blackId,
+    lastMove: room.lastMove,
+  };
+}
     socket.on("room:create",(ack=>{
         try{
             let roomCode=getRoomCode()
@@ -87,7 +117,13 @@ io.on('connection',(socket)=>{
                 roomCode,
                 players:[],
                 status:"waiting",
-                createdAt:Date.now()
+                createdAt:Date.now(),
+                 game:new Chess(),
+                fen:new Chess().fen(),
+                whiteId:null,
+                blackId:null,
+                lastmove:null
+
             }
             socket.join(roomCode);
             newRoom.players.push({
@@ -96,9 +132,9 @@ io.on('connection',(socket)=>{
                 userId:socket.user._id,
             })
             rooms.set(roomCode,newRoom)
-            io.to(roomCode).emit("room:presence",newRoom);
-            console.log(newRoom,"created room")
-            return ack?.({ok:true,room:newRoom})
+            io.to(roomCode).emit("room:presence",getPublicRoom(newRoom));
+            //console.log(newRoom,"created room")
+            return ack?.({ok:true,room:getPublicRoom(newRoom)})
         }
     catch(err){
         return ack?.({ok:false,message:err.message || "create room failed"})
@@ -134,11 +170,16 @@ io.on('connection',(socket)=>{
                 return p;
             })
         }
-        existingRoom.status=existingRoom.players.length==2?"ready":"waiting"
+        // existingRoom.status=existingRoom.players.length==2?"ready":"waiting"
+            if(existingRoom.players.length==2){
+                existingRoom.status="ready"
+                existingRoom.whiteId=existingRoom.players[0].userId
+                existingRoom.blackId=existingRoom.players[1].userId
+            }
             socket.join(roomCode)
-            console.log(existingRoom)
-            io.to(roomCode).emit("room:presence",existingRoom);
-            return ack?.({ok:true, room: existingRoom})
+            //console.log(existingRoom)
+            io.to(roomCode).emit("room:presence",getPublicRoom(existingRoom));
+            return ack?.({ok:true, room: getPublicRoom(existingRoom)})
         }
     catch(err){
         return ack?.({ok:false,message:err.message || "join in room failed"})
@@ -155,13 +196,83 @@ io.on('connection',(socket)=>{
         let remainingPlayers=existingRoom.players.filter((p)=>{
             return p.userId.toString()!==socket.user._id.toString()
         })
-        console.log("remainging ",remainingPlayers)
-         return ack?.({ok:true, room: remainingPlayers})
+
+        existingRoom.players=remainingPlayers
+       
+       if( remainingPlayers.length==1)
+        {
+            existingRoom.status="waiting"
+             io.to(roomCode).emit("room:presence",getPublicRoom(existingRoom));
+            return ack?.({ok:true,room:getPublicRoom(existingRoom)})
+        } 
+        else{
+            rooms.delete(roomCode)
+            return ack?.({ok:true})
+        }
+        
+        //console.log("remainging ",remainingPlayers)
+         
         }
         catch(err){
              return ack?.({ok:false,message:err.message || "failed to leave room"})
         }
         })
+
+
+     //*********************----game related events-------- */
+        // "game:state" event listener
+    socket.on("game:state", (roomCode, ack) => {
+        const room = rooms.get(roomCode);
+        if (!room) return ack?.({ ok: false, message: "Room does not exist" });
+        return ack?.({ ok: true, state: getPublicState(room) });
+    });
+  
+
+    //----game :move event
+        socket.on("game:move",(roomCode,from,to,promotion,ack)=>{
+            const room=rooms.get(roomCode)
+        try{
+            if(!room){
+                return ack?.({ok:false,message:"Room does not exist"})
+            }
+            let player="none"
+            if(socket.user._id.toString()===room.whiteId.toString()){
+                player="w"
+            }
+           else if(socket.user._id.toString()===room.blackId.toString()){
+                player="b"
+            }
+            if(player=='none'){
+                return ack?.({ok:false,message:"Invalid user"})
+            }
+            const turn=room.game.turn();
+            if(player!==turn){
+                return ack?.({ok:false,message:"not your turn"})
+            }
+            const move=room.game.move({
+                from,to,promotion:'q',
+            });
+            if(!move){
+                return ack?.({ok:false,message:"Invalid move"})
+            }
+            room.lastMove={from,to}
+            io.to(roomCode).emit("game:update",getPublicState(room))
+            //check if game is over or not
+            if(room.game.isGameOver()){
+                let result="gameover"
+                if(room.game.isCheckmate()){
+                    result= turn==='w'?'white':'black'
+                }
+                if(room.game.isDraw()){
+                    result="draw"
+                }
+                io.to(roomCode).emit("game:over",result)
+            }
+            }
+        catch(err){
+                return ack?.({ok:false,message:err.message||"Invalid move"})
+            }
+        })     
 })
 
 

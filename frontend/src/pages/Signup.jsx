@@ -2,10 +2,12 @@ import React from 'react'
 import { signup } from '../slices/AuthSlice';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import { useSnackbar } from 'notistack';
 
 function Signup() {
   const dispatch=useDispatch()
   const navigate=useNavigate()
+  const {enqueueSnackbar, closeSnackbar}=useSnackbar()
  async function handleSubmit(e){
      e.preventDefault();
         const formdata=new FormData(e.target);
@@ -17,6 +19,7 @@ function Signup() {
        try{
           await dispatch(signup({email,password,name})).unwrap()
             // await dispatch(fetchMe())
+            enqueueSnackbar("signup succesfull",{ variant: 'success' })
             navigate("/login")
          }catch(err){
           console.log(err)

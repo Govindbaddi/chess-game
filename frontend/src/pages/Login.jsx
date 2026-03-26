@@ -2,10 +2,11 @@ import React from 'react'
 import { fetchMe, login } from '../slices/AuthSlice';
 import {useDispatch} from 'react-redux'
 import {useNavigate} from "react-router-dom"
+import { useSnackbar } from 'notistack';
 function Login() {
   const dispatch=useDispatch()
   const navigate=useNavigate()
-
+  const {enqueueSnackbar, closeSnackbar}=useSnackbar()
   
  async function handleSubmit(e){
     e.preventDefault();
@@ -16,10 +17,15 @@ function Login() {
    // console.log(email,password)
    try{
          await dispatch(login({email,password})).unwrap()
-         await dispatch(fetchMe())
+         await dispatch(fetchMe()).unwrap()
+        enqueueSnackbar("Login succesfull",{ variant: 'success' })
+       
         navigate("/lobby")
      }catch(err){
+
+       enqueueSnackbar("Login failed",{ variant: 'error' })
       console.log(err)
+      
      }
   }
 
