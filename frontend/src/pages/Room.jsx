@@ -12,6 +12,8 @@ function Room() {
   const [turn, setTurn] = useState(null);
   const [color, setColor] = useState(null);
   const loginuser=useSelector((state)=>state.auth.user)
+  const [whiteMs,setwhiteMs]=useState(null)
+  const [blackMs,setblackMs]=useState(null)
   //console.log(loginuser.user._id,"username")
   useEffect(()=>{
     connectSocket();
@@ -29,6 +31,8 @@ function Room() {
         return alert(response?.message || "Failed to fetch game state");
       setFen(response?.state?.fen);
       setTurn(response?.state?.turn);
+      setwhiteMs(response?.clock.whiteMs)
+      setblackMs(response?.clock.blackMs)
     });
 
       const onPresence=(data)=>{
@@ -44,14 +48,25 @@ function Room() {
       alert(res)
     }
 
+    function onClock(ms){
+      if(roomCode!==c.roomCode){
+        return;
+      }
+      setwhiteMs(ms.whiteMs)
+      setblackMs(ms.blackMs)
+    }
+    socket.on("clock:update",onClock)
+
     socket.on("game:update", onUpdate);
     // Add "game:over" event listener
 
     socket.on("game:over", onEnd);
-      socket.on("room:presence",onPresence)
+    socket.on("room:presence",onPresence)
       return ()=>{
         socket.off("room:presence",onPresence)
         socket.off("game:over", onEnd);
+        socket.off("game:update", onUpdate);
+        socket.off("clock:update", onClock);
       }
   },[roomCode,room?.whiteId, loginuser._id]);
 
@@ -68,6 +83,14 @@ function Room() {
       // setRoom(res.room)
     })
     console.log(room,"after leaving ")
+  }
+
+  function convertTime(ms) {
+    if (!ms) return "--:--";
+    const total = Math.floor(ms / 1000);
+    const m = String(Math.floor(total / 60)).padStart(2, "0");
+    const s = String(Math.floor(total % 60)).padStart(2, "0");
+    return `${m}:${s}`;
   }
 
 
@@ -108,6 +131,8 @@ function Room() {
        {room?.status === "ready" && (
       <div className="w-[480px]">
           <div>Turn: {turn === "w" ? "White" : "Black"}</div>
+          <p>white time left:{convertTime(whiteMs)}</p>
+          <p>black time left:{convertTime(blackMs)}</p>
           <Chessboard
             id="room-board"
             position={fen || "start"}
