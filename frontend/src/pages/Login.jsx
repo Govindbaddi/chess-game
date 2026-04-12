@@ -31,7 +31,7 @@ function Login() {
 
   return (
     <div className='flex items-center justify-center h-screen '>
-      <div className='border border-black rounded p-20'>
+      <div className='flex flex-col border border-black rounded p-20  gap-4'>
         <form onSubmit={handleSubmit} 
         className='flex flex-col gap-10'>
         <label>
@@ -53,7 +53,18 @@ function Login() {
         value="Login" 
         className='bg-sky-600 p-2 rounded'/>
       </form>
+      <div className='flex  gap-2 items-center'>
+        <div className='border w-[40%]'></div>
+         <div>OR</div>
+        <div className='border w-[40%]'></div>
       </div>
+     
+      <button className='bg-blue-400 p-2 text-white' 
+      onClick={()=>navigate('/guest')}>Join as Guest</button>
+      </div>
+      
+        
+      
       
     </div>
   )

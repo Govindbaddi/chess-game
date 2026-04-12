@@ -16,7 +16,7 @@ function Lobby() {
   const navigate=useNavigate()
   //creating room----
   function createRoom(){
-    console.log("creating room")
+
     connectSocket()
     socket.emit("room:create",(Response)=>{
       if(!Response?.ok){

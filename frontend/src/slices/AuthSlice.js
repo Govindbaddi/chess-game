@@ -54,6 +54,7 @@ export const fetchMe = createAsyncThunk("auth/me", async (_, thunkAPI) => {
   try {
     const res = await api.get("/auth/me");
     //console.log(res)
+    console.log(res.data.user,"fetching data")
     return res.data;
   } catch (err) {
     return thunkAPI.rejectWithValue(err.message || "fetchme failed");

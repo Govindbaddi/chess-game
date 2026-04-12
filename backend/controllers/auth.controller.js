@@ -75,6 +75,7 @@ const signup = async (req, res) => {
 const fetchMe=async(req,res)=>{
   try{
      const user = req.user;
+     console.log(user,"user details")
     return res.status(200).json({ user });
   }
   catch(err){

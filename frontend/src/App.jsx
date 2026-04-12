@@ -11,6 +11,7 @@ import { fetchMe } from './slices/AuthSlice'
 import Room from './pages/Room'
 import Leaderboard from './pages/Leaderboard'
 import Profile from './pages/Profile'
+import Guest from './pages/Guest'
 
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
      <Route  element={<Navbar/>}>
       <Route path="/login" element={<Login/>}/>
       <Route path="/signup" element={<Signup/>}/>
+      <Route path="/guest" element={<Guest/>}/>
       <Route element={<ProtectedRoutes/>}>
       <Route path="/lobby" element={<Lobby/>}/>
       <Route path="/rooms/:roomCode" element={<Room/>}/>

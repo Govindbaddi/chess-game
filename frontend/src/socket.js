@@ -6,5 +6,12 @@ export const socket = io("http://localhost:8000", {
 });
 
 export const connectSocket = () => {
-  if (!socket.connected) socket.connect();
+  const guest=JSON.parse(localStorage.getItem('guest'))
+  if (!socket.connected) {
+    if(guest){
+      socket.auth={"guestId":guest.id,"guestName":guest.name}
+    }
+    socket.connect();
+  }
+    
 };

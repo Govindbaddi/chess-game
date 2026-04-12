@@ -123,9 +123,9 @@ io.use(async (socket, next) => {
     const cookies = Object.fromEntries(cookiesArray);
     // cookies = {cookie1: value1, cookie2: value2, accessToken: tokenValue, .......}
     let { accesstoken } = cookies;
-    if (!accesstoken) {
-      return next(new Error("Missing accessToken"));
-    }
+    let {guestId,guestName}=socket.handshake.auth
+    //console.log(guestId,guestName,"checking guest")
+    if(accesstoken){
     const payload = jwt.verify(accesstoken, process.env.JWT_ACCESS_SECRET);
     // payload : { sub: value user._id, role: "USER" | "ADMIN" }
     const user = await User.findById(payload.sub).select("-passwordHash");
@@ -133,6 +133,19 @@ io.use(async (socket, next) => {
       return next(new Error("Unable to find user"));
     }
     socket.user = user;
+    return next();
+  }
+  if(guestId && guestName){
+    socket.user={
+      role:'guest',
+      _id:guestId,
+      name:guestName
+    }
+    return next();
+  }
+  if (!accesstoken) {
+      return next(new Error("Missing accessToken"));
+    }
     return next();
   } catch (err) {
     return next(new Error("Unauthorized"));
@@ -203,6 +216,7 @@ io.on('connection',(socket)=>{
                 lastSwitchAt:null,
                 running:false
             }
+            newRoom.chat=[]
 
             rooms.set(roomCode,newRoom)
             io.to(roomCode).emit("room:presence",getPublicRoom(newRoom));
@@ -403,7 +417,53 @@ io.on('connection',(socket)=>{
                 catch(err){
                         return ack?.({ok:false,message:err.message||"Invalid move"})
                     }
-                })     
+         })  
+    //chat box wvents
+      socket.on("chat:send", (roomCode, text, ack) => {
+    try {
+      const room = rooms.get(roomCode);
+      if (!room) return ack?.({ ok: false, message: "Room does not exist" });
+      // Basic validation on text
+      const clean = text.trim();
+      if (!clean) return ack?.({ ok: false, message: "Empty message" });
+      if (clean.length > 300)
+        return ack?.({ ok: false, message: "Text too long" });
+      const isMember = room.players.some(
+        (p) => p.userId.toString() === socket.user._id.toString(),
+      );
+      if (!isMember) return ack?.({ ok: false, message: "Not a valid user" });
+      const message = {
+        userId: socket.user._id.toString(),
+        name: socket.user.name,
+        text: clean,
+        timestamp: Date.now(),
+      };
+      room.chat.push(message);
+      // If chat history is more that 50, remove the oldest chat
+      if (room.chat.length > 50) room.chat.shift();
+      io.to(roomCode).emit("chat:message", message);
+      return ack?.({ ok: true, message });
+    } catch (err) {
+      return ack?.({
+        ok: false,
+        message: err.message || "Failed to send message",
+      });
+    }
+    }); 
+
+    //history event---
+    socket.on("chat:history", (roomCode, ack) => {
+    try {
+      const room = rooms.get(roomCode);
+      if (!room) return ack?.({ ok: false, message: "Room does not exist" });
+      return ack?.({ ok: true, messages: room.chat || [] });
+    } catch (err) {
+      return ack?.({
+        ok: false,
+        message: err.message || "Failed to get chat history",
+      });
+    }
+  });
 })
 
 
