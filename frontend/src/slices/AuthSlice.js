@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { api } from "../api/client";
+import { socket } from "../socket";
 
 const initialState = {
   user: null,
@@ -14,6 +15,8 @@ export const login = createAsyncThunk(
   "auth/login",
   async ({ email, password }) => {
     try {
+      socket.disconnect();
+      localStorage.clear('guest')
       const res = await api.post("/auth/login", { email, password });
       return res.data;
     } catch (err) {
@@ -41,6 +44,7 @@ export const signup = createAsyncThunk(
 //logout reducer
 export const logout = createAsyncThunk("auth/logout", async (_, thunkAPI) => {
   try {
+    socket.disconnect();
     const res = await api.post("/auth/logout");
     return res.data;
   } catch (err) {
@@ -54,8 +58,9 @@ export const fetchMe = createAsyncThunk("auth/me", async (_, thunkAPI) => {
   try {
     const res = await api.get("/auth/me");
     //console.log(res)
-    console.log(res.data.user,"fetching data")
-    return res.data;
+    console.log(res.data.user,"fetching data of currently login details")
+    return res.data.user;
+
   } catch (err) {
     return thunkAPI.rejectWithValue(err.message || "fetchme failed");
   }

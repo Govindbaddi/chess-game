@@ -12,6 +12,7 @@ const { User } = require("./models/usermodel")
 const { leaderboard } = require("./routes/leaderboard.routes")
 const { verifyAuth } = require("./middlewares/verifyAuth")
 const parser = require("./utilities/uploads")
+const {Game}=require('./models/gamemodel')
 
 const app=express()
 //middle wares
@@ -25,7 +26,7 @@ app.use(cookieParser())
 
 app.use("/api/v1/auth/",authRouter)
 app.use("/api/v1/leader/",leaderboard);
-app.post("api/v1/upload/", verifyAuth, parser.single("file"), (req, res) => {
+app.post("/api/v1/upload", verifyAuth, parser.single("file"), (req, res) => {
   // something inside upload.
   try {
     const url = req.file.path;
@@ -65,45 +66,70 @@ function getPublicClock(room) {
   };
 }
 
+//rating calculation
+function getExpectedScore(r1,r2){
+  return 1/(1+Math.pow(10,(r2-r1)/400))
+}
+
 async function saveGameDetailsToUser(room, result, reason) {
+  console.log("saving user details")
   const whiteId = room.whiteId;
   const blackId = room.blackId;
   const white = await User.findById(whiteId);
   const black = await User.findById(blackId);
-  if (result === "draw") {
-    white.stats.draws += 1;
-    white.stats.gamesPlayed += 1;
-    white.stats.currentStreak = 0;
-    black.stats.draws += 1;
-    black.stats.gamesPlayed += 1;
-    black.stats.currentStreak = 0;
-  } else if (result === "white") {
-    white.stats.wins += 1;
-    white.stats.gamesPlayed += 1;
-    white.stats.currentStreak += 1;
-    white.stats.bestStreak = Math.max(
-      white.stats.bestStreak,
-      white.stats.currentStreak,
-    );
-    black.stats.losses += 1;
-    black.stats.gamesPlayed += 1;
-    black.stats.currentStreak = 0;
+  let K = 32;
+  // eW - expected white score
+  let eW = getExpectedScore(white.status.rating, black.status.rating);
+  // eB - expected black score
+  let eB = 1 - eW;
+  // actual white and black scores
+  let sW, sB;
+  if (result === "white") {
+    sW = 1;
+    sB = 0;
   } else if (result === "black") {
-    black.stats.wins += 1;
-    black.stats.gamesPlayed += 1;
-    black.stats.currentStreak += 1;
-    black.stats.bestStreak = Math.max(
-      black.stats.bestStreak,
-      black.stats.currentStreak,
-    );
-    white.stats.losses += 1;
-    white.stats.gamesPlayed += 1;
-    white.stats.currentStreak = 0;
+    sW = 0;
+    sB = 1;
+  } else {
+    sW = 0.5;
+    sB = 0.5;
   }
+  if (result === "draw") {
+    white.status.draws += 1;
+    white.status.gamesPlayed += 1;
+    white.status.currentStreak = 0;
+    black.status.draws += 1;
+    black.status.gamesPlayed += 1;
+    black.status.currentStreak = 0;
+  } else if (result === "white") {
+    white.status.wins += 1;
+    white.status.gamesPlayed += 1;
+    white.status.currentStreak += 1;
+    white.status.bestStreak = Math.max(
+      white.status.bestStreak,
+      white.status.currentStreak,
+    );
+    black.status.looses += 1;
+    black.status.gamesPlayed += 1;
+    black.status.currentStreak = 0;
+  } else if (result === "black") {
+    black.status.wins += 1;
+    black.status.gamesPlayed += 1;
+    black.status.currentStreak += 1;
+    black.status.bestStreak = Math.max(
+      black.status.bestStreak,
+      black.status.currentStreak,
+    );
+    white.status.lo0ses += 1;
+    white.status.gamesPlayed += 1;
+    white.status.currentStreak = 0;
+  }
+   white.status.rating = Math.round(white.status.rating + K * (sW - eW));
+  black.status.rating = Math.round(black.status.rating + K * (sB - eB));
   await white.save();
   await black.save();
 }
-
+let rooms=new Map()
 
 // Socket.io middleware
 io.use(async (socket, next) => {
@@ -164,15 +190,11 @@ function getRoomCode(len=6){
 }
 
 // helper function to remove game object from the room
-
-
-
-let rooms=new Map()
-io.on('connection',(socket)=>{
-    function getPublicRoom(room) {
+function getPublicRoom(room) {
   return {
     roomCode: room.roomCode,
     players: room.players.map((p) => ({ userId: p.userId, name: p.name })),
+    spectators:room.spectators,
     status: room.status,
     createdAt: room.createdAt,
     fen: room.fen,
@@ -181,15 +203,22 @@ io.on('connection',(socket)=>{
     lastMove: room.lastMove,
   };
 }
+
+
+
+io.on('connection',(socket)=>{
+    
     socket.on("room:create",(ack=>{
         try{
             let roomCode=getRoomCode()
             while(rooms.has(roomCode)){
                 roomCode=getRoomCode()
             }
+           // console.log(rooms,"rooms name in ")
             const newRoom={
                 roomCode,
                 players:[],
+                spectators:[],
                 status:"waiting",
                 createdAt:Date.now(),
                  game:new Chess(),
@@ -197,7 +226,6 @@ io.on('connection',(socket)=>{
                 whiteId:null,
                 blackId:null,
                 lastmove:null
-
             }
             socket.join(roomCode);
             newRoom.players.push({
@@ -205,6 +233,7 @@ io.on('connection',(socket)=>{
                 socketId:socket.user.name,
                 userId:socket.user._id,
             })
+            //console.log(newRoom,"added players into room")
             // all the clock related information
             const baseMs=5*60*1000
             const incrementMs=0
@@ -217,28 +246,35 @@ io.on('connection',(socket)=>{
                 running:false
             }
             newRoom.chat=[]
-
             rooms.set(roomCode,newRoom)
             io.to(roomCode).emit("room:presence",getPublicRoom(newRoom));
-            //console.log(newRoom,"created room")
+            //console.log(rooms,"created room")
             return ack?.({ok:true,room:getPublicRoom(newRoom)})
         }
     catch(err){
         return ack?.({ok:false,message:err.message || "create room failed"})
     }}))
-
+    
     //room:join event
     socket.on("room:join",(roomCode,ack)=>{
-        //console.log(`A user tried to join the room ${roomCode}`)
+        console.log(`A user tried to join the room ${roomCode}, ${socket.user.name}`)
         try{
+         // console.log(roomCode,"roomcode in room-join")
+          console.log(rooms.size,"all rooms")
         const existingRoom=rooms.get(roomCode)
+          //console.log(existingRoom,"checking room")
         if(!existingRoom){
             return ack?.({ok:false,message:"room does not exist"})
         }
 
         const already=existingRoom.players.some((p)=>
-        p.userId.toString()===socket.user._id.toString()
-        )
+        p.userId.toString()===socket.user._id.toString())
+        const spectator=existingRoom.spectators.some((p)=>{
+          return p.userId.toString()===socket.user._id.toString()
+        })
+        if(spectator){
+            return ack?.({ok:true,room:getPublicRoom(existingRoom)});
+        }
         if(!already){
             if(existingRoom.players.length==2){
                 return ack?.({ok:false,message:"room is full"})
@@ -283,6 +319,7 @@ io.on('connection',(socket)=>{
     socket.on("room:leave",(roomCode,ack)=>{
         try{
         const existingRoom=rooms.get(roomCode)
+        //console.log(rooms,"rooms in leave room")
         if(!existingRoom){
             return ack?.({ok:false,message:"room does not exist"})
         }
@@ -291,7 +328,9 @@ io.on('connection',(socket)=>{
         })
 
         existingRoom.players=remainingPlayers
-       
+       existingRoom.spectators=existingRoom.spectators.filter((s)=>{
+        return s.userId.toString()===socket.user._id.toString()
+       })
        if( remainingPlayers.length==1)
         {
             existingRoom.status="waiting"
@@ -310,6 +349,47 @@ io.on('connection',(socket)=>{
              return ack?.({ok:false,message:err.message || "failed to leave room"})
         }
         })
+
+      //joining as spectator----
+      socket.on("room:join-spectator", (roomCode, ack) => {
+      try {
+      //console.log(`User tried to join room as spectator ${roomCode}`);
+      const existingRoom = rooms.get(roomCode);
+      if (!existingRoom)
+        return ack?.({ ok: false, message: "Room does not exist" });
+      const already = existingRoom.spectators.some(
+        (s) => s.userId.toString() === socket.user._id.toString(),
+      );
+      if (already) {
+        existingRoom.spectators = existingRoom.spectators.map((s) => {
+          if (s.userId.toString() === socket.user._id.toString()) {
+            return { ...s, socketId: socket.id };
+          }
+          return p;
+        });
+      } else {
+        if (existingRoom.spectators.length === 50) {
+          return ack?.({ ok: false, message: "Room is full" });
+        }
+        existingRoom.spectators.push({
+          userId: socket.user._id,
+          name: socket.user.name,
+          role: socket.user.role,
+          socketId: socket.id,
+        });
+      }
+      
+      socket.join(roomCode);
+      io.to(roomCode).emit("room:presence", getPublicRoom(existingRoom));
+      return ack?.({ ok: true, room: getPublicRoom(existingRoom) });
+    } catch (err) {
+      return ack?.({
+        ok: false,
+        message: err.message || "Unable to join room as a spectator",
+      });
+    }
+  });
+
 
 
      //*********************----game related events-------- */
@@ -371,6 +451,10 @@ io.on('connection',(socket)=>{
                 room.clock.running=false
                 const result=room.clock.whiteMs===0 ? "black":"white"
                 const reason="timeout"
+                io.to(roomCode).emit("game:over", result);
+                if(socket.user.role==='guest'){
+                  return;
+                }
                 const game = new Game({
                     roomCode,
                     whiteId: room.whiteId,
@@ -383,7 +467,6 @@ io.on('connection',(socket)=>{
                     });
                     await game.save();
                     await saveGameDetailsToUser(room, result, reason);
-                    io.to(roomCode).emit("game:over", result);
 
             }
 
@@ -413,13 +496,13 @@ io.on('connection',(socket)=>{
                 await saveGameDetailsToUser(room, result, reason);
                 io.to(roomCode).emit("game:over", result);
             }
-                    }
-                catch(err){
-                        return ack?.({ok:false,message:err.message||"Invalid move"})
-                    }
+          }
+          catch(err){
+               return ack?.({ok:false,message:err.message||"Invalid move"})
+            }
          })  
     //chat box wvents
-      socket.on("chat:send", (roomCode, text, ack) => {
+  socket.on("chat:send", (roomCode, text, ack) => {
     try {
       const room = rooms.get(roomCode);
       if (!room) return ack?.({ ok: false, message: "Room does not exist" });
@@ -428,9 +511,12 @@ io.on('connection',(socket)=>{
       if (!clean) return ack?.({ ok: false, message: "Empty message" });
       if (clean.length > 300)
         return ack?.({ ok: false, message: "Text too long" });
-      const isMember = room.players.some(
+      let isPlayer = room.players.some(
         (p) => p.userId.toString() === socket.user._id.toString(),
       );
+      //spectator sending messages
+      const isSpectator=room.spectators.some((s)=>s.userId.toString()===socket.user._id.toString())
+      let isMember= isPlayer || isSpectator
       if (!isMember) return ack?.({ ok: false, message: "Not a valid user" });
       const message = {
         userId: socket.user._id.toString(),
@@ -462,6 +548,19 @@ io.on('connection',(socket)=>{
         ok: false,
         message: err.message || "Failed to get chat history",
       });
+    }
+  });
+  //disconnnect event-----
+  socket.on("disconnect", () => {
+    console.log("disconnect is happening on refrsh")
+    for (let [roomCode, room] of rooms.entries()) {
+      room.players = room.players.filter((p) => p.socketId !== socket.id);
+      
+      if (room.players.length === 0) {
+        rooms.delete(roomCode);
+        continue;
+      }
+      room.status = room.players.length === 2 ? "ready" : "waiting";
     }
   });
 })

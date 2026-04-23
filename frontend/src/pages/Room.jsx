@@ -19,37 +19,24 @@ function Room() {
   const {roomCode}=useParams()
   //const [messages,setMessages]=useState([]);
   const [room,setRoom]=useState(null)
-  const navigate=useNavigate()
+ 
    const [fen, setFen] = useState(null);
   const [turn, setTurn] = useState(null);
   const [color, setColor] = useState(null);
   const guest=JSON.parse(localStorage.getItem('guest'))
-  const loginuser=(useSelector((state)=>state.auth.user) || {_id:guest?.guestId,name:guest?.guestName})
+ // console.log(guest,"direact guest")
+
+  const loginuser=useSelector((state)=>state.auth.user) || {_id:guest?.id,name:guest?.name}
+//  console.log(loginuser,"user details in room")
   const [whiteMs,setwhiteMs]=useState(null)
   const [blackMs,setblackMs]=useState(null)
   const [messages,setMessages]=useState([])
   const [text,setText]=useState(null)
-  //console.log(loginuser.user._id,"username")
+  const [isSpectator,setIsSpectator]=useState(false)
+  const navigate=useNavigate()
+
   useEffect(()=>{
     connectSocket();
-    // socket.emit("room:join",roomCode,(response)=>{
-    //   if(!response?.ok){
-    //     return alert(response?.message || "Failing to join room") 
-    //   }
-    //   setRoom(response.room)
-    //   setColor(
-    //     loginuser.user._id == room?.whiteId ? "White" : "Black",
-    //   );
-    // })
-    // socket.emit("game:state", roomCode, (response) => {
-    //   if (!response?.ok)
-    //     return alert(response?.message || "Failed to fetch game state");
-    //   setFen(response?.state?.fen);
-    //   setTurn(response?.state?.turn);
-    //   setwhiteMs(response?.clock.whiteMs)
-    //   setblackMs(response?.clock.blackMs)
-    // });
-
       const onPresence=(data)=>{
         setRoom(data);
       }
@@ -60,7 +47,8 @@ function Room() {
       setTurn(state.turn);
     };
     function onEnd(res){
-      alert(res)
+      console.log('winner is response')
+      alert(res,"is winner")
     }
 
     function onClock(ms){
@@ -99,14 +87,17 @@ function Room() {
       if(!response?.ok){
         return alert(response?.message || "Failing to join room") 
       }
+      console.log(response?.room,"res after room:join")
       setRoom(response.room)
       setColor(
-        loginuser.user._id == room?.whiteId ? "White" : "Black",
+        loginuser._id == room?.whiteId ? "White" : "Black",
       );
+      setIsSpectator(response?.room?.spectators?.some((s)=>s.userId.to))
     })
     socket.emit("game:state", roomCode, (response) => {
       if (!response?.ok)
         return alert(response?.message || "Failed to fetch game state");
+      console.log(response?.state?.fen,"fen checking")
       setFen(response?.state?.fen);
       setTurn(response?.state?.turn);
       setwhiteMs(response?.clock.whiteMs)
@@ -133,7 +124,7 @@ function Room() {
       if(!res?.ok){
          return alert(res?.message || "Failing to leave room") 
       }
-      console.log(res,"response from")
+      //console.log(res,"response from")
       navigate("/lobby")
       // setRoom(res.room)
     })
@@ -177,13 +168,13 @@ function Room() {
       setText("");
     });
   }
+ console.log("latest fen value",fen);
 
-
- //console.log(room,"members in room")
+ console.log(room,"members in room")
   return (
     <div className='m-8 flex flex-col gap-3'>
       <div >
-        <h2 className='flex flex-row items-center text-blue-700 text-xl'  ><IoMdArrowRoundBack />Back to lobby</h2>
+        <button className='flex flex-row items-center text-blue-700 text-xl cursor-pointer' onClick={()=>navigate('/lobby')} ><IoMdArrowRoundBack />Back to lobby</button>
       </div>
       <div className='flex gap-20'>
         <h1 className='flex items-center gap-5 text-xl'>
@@ -210,7 +201,7 @@ function Room() {
                 <div className="flex flex-col gap-1">
                   <div className="text-xl font-bold">
                     {p.name}
-                    {p.userId.toString() === loginuser.user._id.toString() && (
+                    {p.userId.toString() === loginuser._id.toString() && (
                       <span className="ml-4 bg-blue-400 pl-1 pr-2 pt-1 pb-1 rounded">
                         You
                       </span>
@@ -303,7 +294,7 @@ function Room() {
               <div className="p-2">
                 <Chessboard
                   id="room-board"
-                  position={fen || "start"}
+                  position={fen || 'start'}
                   onPieceDrop={onDrop}
                 />
               </div>
@@ -315,7 +306,7 @@ function Room() {
               <div className="h-[500px] flex flex-col gap-2 pt-2 pb-2 overflow-scroll">
                 {messages.map((m) => (
                   <div
-                    className={`${loginuser.user._id.toString() === m.userId ? "bg-blue-200" : "bg-gray-200"} flex flex-col gap-1 p-2 rounded ml-2 mr-2`}
+                    className={`${loginuser._id.toString() === m.userId ? "bg-blue-200" : "bg-gray-200"} flex flex-col gap-1 p-2 rounded ml-2 mr-2`}
                   >
                     <div className="flex gap-1 items-center font-bold text-blue-800">
                       <FaUserCircle size={18} />

@@ -7,7 +7,7 @@ const userSchema=mongoose.Schema({
     role:{enum:["USER","ADMIN"],type:String,default:"USER"},
     avatar:{type:String,default:""},
     status:{
-        rating:{type:Number,default:0},
+        rating:{type:Number,default:1200},
         wins:{type:Number,default:0},
         looses:{type:Number,default:0},
         draws:{type:Number,default:0},

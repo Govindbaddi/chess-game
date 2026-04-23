@@ -36,6 +36,17 @@ function Lobby() {
       navigate(`/rooms/${Response.room.roomCode}`)
     })
   }
+
+  //spectator
+  function joinAsSpectator() {
+    connectSocket();
+    socket.emit("room:join-spectator", roomCode, (response) => {
+      if (!response?.ok)
+        return alert(response.message || "Failed to join room");
+      navigate(`/rooms/${response.room.roomCode}`);
+    });
+  }
+
   return (
     <div className='flex flex-col  gap-10 items-center pt-5'>
       <div className='flex flex-col items-center gap-4'>
@@ -75,6 +86,8 @@ function Lobby() {
            onChange={(e)=>{setRoomCode(e.target.value)}} />
           <button className='bg-green-600 rounded p-4 flex gap-3 items-center w-[80%] justify-center'
         onClick={joinRoom}><FaArrowRight />Join Room</button>
+        <button className='bg-green-500 rounded p-4 flex gap-3 items-center w-[80%] justify-center'
+        onClick={joinAsSpectator}><FaArrowRight />Join as Spectator</button>
         </div>
       
       </div>

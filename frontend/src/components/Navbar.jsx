@@ -14,6 +14,7 @@ import { PiLineVerticalBold } from "react-icons/pi";
   const navigate=useNavigate()
   console.log(usersta,"status checking")
   function handleLogout() {
+    localStorage.clear('guest')
     dispatch(logout());
   }
 

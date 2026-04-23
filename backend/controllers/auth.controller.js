@@ -21,7 +21,7 @@ const login=async (req,res)=>{
             process.env.JWT_ACCESS_SECRET,
             {expiresIn:"15m"}
             )
-            console.log(accessToken,"getting in login")
+            //console.log(accessToken,"getting in login")
         res.cookie("accesstoken",accessToken,{
             httpOnly:true,
             secure: process.env.NODE_ENV === "production", // send cookie only to https secure sites
@@ -75,7 +75,7 @@ const signup = async (req, res) => {
 const fetchMe=async(req,res)=>{
   try{
      const user = req.user;
-     console.log(user,"user details")
+     //console.log(user,"user details")
     return res.status(200).json({ user });
   }
   catch(err){
