@@ -3,7 +3,7 @@ const jwt=require('jsonwebtoken')
 const verifyAuth=async(req,res,next)=>{
     try{
         
-        const {accesstoken } = req.cookies;
+      const {accesstoken } = req.cookies;
        // console.log(accesstoken,"body")
     if (!accesstoken) {
       return res.status(401).json({ message: "Access token missing" });

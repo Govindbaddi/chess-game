@@ -19,7 +19,7 @@ import { PiLineVerticalBold } from "react-icons/pi";
   }
 
   return (
-    <div className="bg-[url(/img/chessbg2.jpg)] bg-cover bg-center h-screen w-screen">
+    <div className="bg-[url(/img/chessbg2.jpg)] bg-cover bg-center  w-screen">
       <div className="p-4 bg-blue-600 flex flex-row justify-between items-center text-lg  text-white ">
         <div>
           <Link to="/lobby" className="flex gap-2 items-center justify-center"><LiaChessKnightSolid  className="w-10 h-10"/>Lobby</Link>
@@ -36,6 +36,7 @@ import { PiLineVerticalBold } from "react-icons/pi";
             
           ) : (
             <div className="flex flex-row gap-4">
+              <Link to="/">Home</Link>
               <Link to="/login">Login</Link>
               <Link to="/signup">Signup</Link>
             </div>

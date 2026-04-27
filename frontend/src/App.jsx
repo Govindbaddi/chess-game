@@ -12,6 +12,7 @@ import Room from './pages/Room'
 import Leaderboard from './pages/Leaderboard'
 import Profile from './pages/Profile'
 import Guest from './pages/Guest'
+import Home from './pages/Home'
 
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
   return (
     <>
     <Routes>
+      <Route path="/" element={<Home/>}/>
      <Route  element={<Navbar/>}>
       <Route path="/login" element={<Login/>}/>
       <Route path="/signup" element={<Signup/>}/>
@@ -35,6 +37,7 @@ function App() {
       <Route path="/rooms/:roomCode" element={<Room/>}/>
       <Route path="/leaderboard" element={<Leaderboard/>}/>
       <Route path="/profile" element={<Profile/>}/>
+      
       </Route>
       </Route>
     </Routes>

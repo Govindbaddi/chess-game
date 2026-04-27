@@ -26,11 +26,39 @@ app.use(cookieParser())
 
 app.use("/api/v1/auth/",authRouter)
 app.use("/api/v1/leader/",leaderboard);
-app.post("/api/v1/upload", verifyAuth, parser.single("file"), (req, res) => {
+app.post("/api/v1/upload", verifyAuth, parser.single("file"), async (req, res) => {
   // something inside upload.
+  // try {
+    
+  //   const url = req.file.path;
+  //   return res.status(200).json({ avatar: url });
+  // } catch (err) {
+  //   return res.status(500).json({ message: err.message });
+  // }
   try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
     const url = req.file.path;
-    return res.status(200).json({ avatar: url });
+
+    // Get user first
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Update avatar
+    user.avatar = url;
+
+    // Save user
+    await user.save();
+
+    return res.status(200).json({
+      message: "Avatar updated successfully",
+      avatar: user.avatar,
+    });
+
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
