@@ -20,7 +20,7 @@ const CLIENT_URL=process.env.CLIENT_URL
 app.use(express.json())
 
 app.use(cors({
-    origin:[CLIENT_URL || "http://localhost:5173"],
+    origin:CLIENT_URL || "http://localhost:5173",
     credentials:true
 }))
 app.use(cookieParser())
@@ -72,7 +72,7 @@ const MONGODB_URI=process.env.MONGODB_URI
 
 const server=http.createServer(app);
 const io=new Server(server,{cors:{
-    origin:[ CLIENT_URL || "http://localhost:5173"],
+    origin:CLIENT_URL || "http://localhost:5173",
     credentials:true
 }})
 
