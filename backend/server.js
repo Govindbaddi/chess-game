@@ -16,6 +16,7 @@ const {Game}=require('./models/gamemodel')
 
 const app=express()
 const CLIENT_URL=process.env.CLIENT_URL
+console.log(CLIENT_URL,"CLIENT URL IS THIS")
 //middle wares
 app.use(express.json())
 

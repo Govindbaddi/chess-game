@@ -26,6 +26,7 @@ const login=async (req,res)=>{
             httpOnly:true,
             secure: process.env.NODE_ENV === "production", // send cookie only to https secure sites
             maxAge: 15 * 60 * 1000,
+            sameSite:process.env.NODE_ENV==="production"?"none":"lax"
         })
         // console.log(res.accesstoken,"printing")
         //refresh token
@@ -37,7 +38,8 @@ const login=async (req,res)=>{
             httpOnly:true,
             secure: process.env.NODE_ENV === "production", // send cookie only to https secure sites
             maxAge: 7*24*60*60*1000,
-             path: "/api/v1/auth/refresh"
+             path: "/api/v1/auth/refresh",
+              sameSite:process.env.NODE_ENV==="production"?"none":"lax"
         })
        // console.log(res.refreshtoken,"refresh")
         return res.status(200).json({message:"ok"})
